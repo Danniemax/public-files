@@ -1,0 +1,560 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "_artifactsLocation": {
+            "type": "string",
+            "metadata": {
+                "description": "The base URI where artifacts required by this template are located including a trailing '/'"
+            },
+            "defaultValue": "[deployment().properties.templateLink.uri]"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated. Use the defaultValue if the staging location is not secured."
+            },
+            "defaultValue": ""
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for deployed resources"
+            }
+        },
+        "deployFsm": {
+            "type": "bool"
+        },
+        "vm_size": {
+            "allowedValues": [
+                "Standard_D4_v3",
+                "Standard_D3_v2",
+                "Standard_D8_v3",
+                "Standard_D4_v2_Promo",
+                "Standard_D4_v2"
+            ],
+            "type": "string"
+        },
+        "numberOfVMs": {
+            "type": "int"
+        },
+        "storage_Account_name": {
+            "type": "string"
+        },
+        "storage_Account_newOrExisting": {
+            "type": "string"
+        },
+        "storage_Account_ResourceGroup": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().name]",
+            "metadata": {
+                "description": "The host resource group of an existing storage account (if not new) that should be used for VMs in deployment"
+            }
+        },
+        "virtualNetwork_name": {
+            "type": "string"
+        },
+        "virtualNetwork_addressPrefixes": {
+            "type": "array",
+            "metadata": {
+                "description": "Address prefix of the virtual network"
+            }
+        },
+        "virtualNetwork_newOrExisting": {
+            "defaultValue": "existing",
+            "type": "string",
+            "metadata": {
+                "description": "Indicator of whether the deployment storage account should be created ('new') or already exists ('existing')."
+            }
+        },
+        "virtualNetwork_ResourceGroup": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().name]",
+            "metadata": {
+                "description": "The host resource group of the virtual network"
+            }
+        },
+        "vmAdminUserName": {
+            "type": "string"
+        },
+        "vmAdminPassword": {
+            "type": "securestring"
+        },
+        "subnet_name": {
+            "type": "string"
+        },
+        "vm_name": {
+            "type": "string"
+        },
+        "subnetPrefix": {
+            "type": "string"
+        },
+        "fsmVirtualMachineName": {
+            "type": "string"
+        },
+        "fsmVirtualMachineSize": {
+            "type": "string",
+            "allowedValues": [
+                "Standard_A8_v2",
+                "Standard_B4ms",
+                "Standard_B8ms",
+                "Standard_D4_v3",
+                "Standard_D8_v3",
+                "Standard_D16_v3",
+                "Standard_D4s_v3",
+                "Standard_D8s_v3",
+                "Standard_D16s_v3",
+                "Standard_D4_v2",
+                "Standard_DS4_v2",
+                "Standard_E4_v3",
+                "Standard_E8_v3",
+                "Standard_E4s_v3",
+                "Standard_E8s_v3",
+                "Standard_F8",
+                "Standard_F16",
+                "Standard_F8s",
+                "Standard_F16s",
+                "Standard_F8s_v2",
+                "Standard_F16s_v2"
+            ]
+        },
+        "fsmVmAdminUsername": {
+            "type": "string"
+        },
+        "fsmVmAdminPassword": {
+            "type": "securestring"
+        },
+        "sqlServerRemote": {
+            "type": "bool"
+        },
+        "sqlServerHost": {
+            "type": "string"
+        },
+        "sqlServerPort": {
+            "type": "int"
+        },
+        "sqlServerUser": {
+            "type": "string"
+        },
+        "sqlServerPassword": {
+            "type": "securestring"
+        },
+        "sqlServerWindowsUser": {
+            "type": "string"
+        },
+        "sqlServerWindowsPassword": {
+            "type": "securestring"
+        },
+        "sqlServerEncrypt": {
+            "type": "bool"
+        },
+        "certUrl": {
+            "type": "string"
+        },
+        "dssArchiveEnable": {
+            "type": "bool"
+        },
+        "dssArchiveLocalFolder": {
+            "type": "string"
+        },
+        "dssArchiveSharedFolder": {
+            "type": "string"
+        },
+        "dssArchiveUsername": {
+            "type": "string"
+        },
+        "dssArchivePassword": {
+            "type": "securestring"
+        },
+        "dssArchiveDomain": {
+            "type": "string"
+        },
+        "fsmAdminPassword": {
+            "type": "securestring"
+        },
+        "fsmAdminEmailAddress": {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "deployMultipleVms": "[greaterOrEquals(parameters('numberOfVMs'), 2)]",
+        "vm_name": "[parameters('vm_name')]",
+        "nic_primary_name": "fes-nic",
+        "publicIPAddresses_vm_name": "fes-public-ip",
+        "availabilitySets_ESG1AvailabilitySet_name": "fesAvailabilitySet",
+        "networkSecurityGroups_VPNNSG_name": "fes-nsg",
+        "networkInterfaceName": "fsm-nic",
+        "networkSecurityGroupName": "fsm-nsg",
+        "publicIpAddressName": "fsm-public-ip",
+        "installScriptName": "fsm_post_install.ps1",
+        "installCommand": "[concat('powershell.exe -File ', variables('installScriptName'), ' ', parameters('fsmVirtualMachineName'), ' ', parameters('fsmVmAdminUsername'), ' ', base64(parameters('fsmVmAdminPassword')), ' ', parameters('sqlServerRemote'), ' ', parameters('sqlServerHost'), ' ', parameters('sqlServerPort'), ' ', base64(parameters('sqlServerUser')), ' ', base64(parameters('sqlServerPassword')), ' ', base64(parameters('fsmAdminPassword')), ' ', parameters('fsmAdminEmailAddress'), ' ', parameters('sqlServerWindowsUser'), ' ', base64(parameters('sqlServerWindowsPassword')), ' ', parameters('sqlServerEncrypt'), ' ', base64(parameters('certUrl')), ' ', parameters('dssArchiveEnable'), ' ', parameters('dssArchiveLocalFolder'), ' ', parameters('dssArchiveSharedFolder'), ' ', parameters('dssArchiveUsername'), ' ', base64(parameters('dssArchivePassword')), ' ', parameters('dssArchiveDomain'))]",
+        "nicExists": [
+            "[greaterOrEquals(parameters('numberOfVMs'), 2)]",
+            "[greaterOrEquals(parameters('numberOfVMs'), 3)]",
+            "[greaterOrEquals(parameters('numberOfVMs'), 4)]",
+            "[greaterOrEquals(parameters('numberOfVMs'), 5)]",
+            "[greaterOrEquals(parameters('numberOfVMs'), 6)]",
+            "[greaterOrEquals(parameters('numberOfVMs'), 7)]"
+        ],
+        "nicNumber": [
+            "[concat(variables('nic_primary_name'), if(variables('nicExists')[0], '2', '1'))]",
+            "[concat(variables('nic_primary_name'), if(variables('nicExists')[1], '3', '1'))]",
+            "[concat(variables('nic_primary_name'), if(variables('nicExists')[2], '4', '1'))]",
+            "[concat(variables('nic_primary_name'), if(variables('nicExists')[3], '5', '1'))]",
+            "[concat(variables('nic_primary_name'), if(variables('nicExists')[4], '6', '1'))]",
+            "[concat(variables('nic_primary_name'), if(variables('nicExists')[5], '7', '1'))]"
+        ],
+        "subnetRef": "[resourceId(parameters('virtualNetwork_ResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetwork_name'), parameters('subnet_name'))]",
+        "saRef": "[resourceId(parameters('storage_Account_ResourceGroup'), 'Microsoft.Storage/storageAccounts', parameters('storage_Account_Name'))]",
+        "sharedResourcesUri": "[uri(parameters('_artifactsLocation'), concat('nestedtemplates/shared-resources.json', parameters('_artifactsLocationSasToken')))]",
+        "loadBalancerUri": "[uri(parameters('_artifactsLocation'), concat('nestedtemplates/load-balancer.json', parameters('_artifactsLocationSasToken')))]",
+        "postInstallScriptUri": "[uri(parameters('_artifactsLocation'), concat(variables('installScriptName'), parameters('_artifactsLocationSasToken')))]"
+    },
+    "resources": [
+        {
+            "name": "pid-0688e370-d825-415e-b558-84bc9fa8a621-partnercenter",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "resources": []
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[parameters('storage_Account_Name')]",
+            "apiVersion": "2019-06-01",
+            "condition": "[equals(parameters('storage_Account_newOrExisting'), 'new')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage"
+        },
+        {
+            "apiVersion": "2019-10-01",
+            "name": "sharedResourcesTemplate",
+            "type": "Microsoft.Resources/deployments",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[variables('sharedResourcesUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "networkSecurityGroups_VPNNSG_name": {
+                        "value": "[variables('networkSecurityGroups_VPNNSG_name')]"
+                    }
+                }
+            }
+        },
+        {
+            "apiVersion": "2019-12-01",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[parameters('virtualNetwork_name')]",
+            "condition": "[equals(parameters('virtualNetwork_newOrExisting'), 'new')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": "[parameters('virtualNetwork_addressPrefixes')]"
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('subnet_name')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('subnetPrefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('fsmVirtualMachineName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/networkInterfaces/', variables('networkInterfaceName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts/', parameters('storage_Account_name'))]"
+            ],
+            "condition": "[parameters('deployFsm')]",
+            "plan": {
+                "name": "forcepoint_email_security_v854_fsm",
+                "publisher": "forcepoint-llc",
+                "product": "forcepoint-email-security-854"
+            },
+            "properties": {
+                "osProfile": {
+                    "computerName": "[take(parameters('fsmVirtualMachineName'), 15)]",
+                    "adminUsername": "[parameters('fsmVmAdminUsername')]",
+                    "adminPassword": "[parameters('fsmVmAdminPassword')]",
+                    "windowsConfiguration": {
+                        "provisionVmAgent": true
+                    }
+                },
+                "hardwareProfile": {
+                    "vmSize": "[parameters('fsmVirtualMachineSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "forcepoint-llc",
+                        "offer": "forcepoint-email-security-854",
+                        "sku": "forcepoint_email_security_v854_fsm",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true,
+                        "storageUri": "[reference(variables('saRef'), '2018-02-01').primaryEndpoints.blob]"
+                    }
+                }
+            }
+        },
+        {
+            "name": "[variables('networkInterfaceName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-12-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIpAddresses/', variables('publicIpAddressName'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/', variables('networkSecurityGroupName'))]"
+            ],
+            "condition": "[parameters('deployFsm')]",
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "subnet": {
+                                "id": "[variables('subnetRef')]"
+                            },
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIpAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIpAddresses', variables('publicIpAddressName'))]"
+                            }
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": false,
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+                }
+            }
+        },
+        {
+            "name": "[variables('publicIpAddressName')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-12-01",
+            "location": "[parameters('location')]",
+            "condition": "[parameters('deployFsm')]",
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static"
+            }
+        },
+        {
+            "name": "[variables('networkSecurityGroupName')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2019-12-01",
+            "location": "[parameters('location')]",
+            "condition": "[parameters('deployFsm')]",
+            "properties": {}
+        },
+        {
+            "name": "[concat(parameters('fsmVirtualMachineName'),'/customscriptextension')]",
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('fsmVirtualMachineName'))]"
+            ],
+            "condition": "[parameters('deployFsm')]",
+            "properties": {
+                "publisher": "Microsoft.Compute",
+                "type": "CustomScriptExtension",
+                "typeHandlerVersion": "1.8",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "[variables('postInstallScriptUri')]"
+                    ]
+                },
+                "protectedSettings": {
+                    "commandToExecute": "[concat(variables('installCommand'), ' ', parameters('numberOfVMs'), ' ', reference(concat(variables('nic_primary_name'), '1')).ipConfigurations[0].properties.privateIPAddress, if(variables('nicExists')[0], concat(' ', reference(variables('nicNumber')[0]).ipConfigurations[0].properties.privateIPAddress), ''), if(variables('nicExists')[1], concat(' ', reference(variables('nicNumber')[1]).ipConfigurations[0].properties.privateIPAddress), ''), if(variables('nicExists')[2], concat(' ', reference(variables('nicNumber')[2]).ipConfigurations[0].properties.privateIPAddress), ''), if(variables('nicExists')[3], concat(' ', reference(variables('nicNumber')[3]).ipConfigurations[0].properties.privateIPAddress), ''), if(variables('nicExists')[4], concat(' ', reference(variables('nicNumber')[4]).ipConfigurations[0].properties.privateIPAddress), ''), if(variables('nicExists')[5], concat(' ', reference(variables('nicNumber')[5]).ipConfigurations[0].properties.privateIPAddress), ''))]"
+                }
+            }
+        },
+        {
+            "apiVersion": "2019-10-01",
+            "name": "loadBalancerTemplate",
+            "type": "Microsoft.Resources/deployments",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[variables('loadBalancerUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "location": {
+                        "value": "[parameters('location')]"
+                    },
+                    "enableLoadBalancer": {
+                        "value": "[variables('deployMultipleVms')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/availabilitySets",
+            "sku": {
+                "name": "Aligned"
+            },
+            "name": "[variables('availabilitySets_ESG1AvailabilitySet_name')]",
+            "apiVersion": "2019-07-01",
+            "condition": "[variables('deployMultipleVms')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "platformUpdateDomainCount": 5,
+                "platformFaultDomainCount": 2
+            }
+        },
+        {
+            "comments": "Appliance Virtual Machines",
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[concat(variables('vm_name'), copyIndex(1))]",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('location')]",
+            "copy": {
+                "name": "virtualmachines",
+                "count": "[parameters('numberOfVMs')]"
+            },
+            "plan": {
+                "name": "forcepoint_email_security_v854_appliance",
+                "publisher": "forcepoint-llc",
+                "product": "forcepoint-email-security-854"
+            },
+            "properties": {
+                "availabilitySet": "[if(variables('deployMultipleVms'), json(concat('{\"id\": \"', resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySets_ESG1AvailabilitySet_name')), '\"}')), json('null'))]",
+                "hardwareProfile": {
+                    "vmSize": "[parameters('vm_size')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "forcepoint-llc",
+                        "offer": "forcepoint-email-security-854",
+                        "sku": "forcepoint_email_security_v854_appliance",
+                        "version": "latest"
+                    }
+                },
+                "osProfile": {
+                    "computerName": "[concat(variables('vm_name'), copyIndex(1))]",
+                    "adminUsername": "[parameters('vmAdminUserName')]",
+                    "adminPassword": "[parameters('vmAdminPassword')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('nic_primary_name'), copyIndex(1)))]",
+                            "properties": {
+                                "primary": true
+                            }
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true,
+                        "storageUri": "[reference(variables('saRef'), '2018-02-01').primaryEndpoints.blob]"
+                    }
+                }
+            },
+            "dependsOn": [
+                "sharedResourcesTemplate",
+                "[resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySets_ESG1AvailabilitySet_name'))]",
+                "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('nic_primary_name'), copyIndex(1)))]",
+                "[resourceId('Microsoft.Storage/storageAccounts/', parameters('storage_Account_name'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[concat(variables('publicIPAddresses_vm_name'), copyIndex(1))]",
+            "apiVersion": "2019-12-01",
+            "location": "[parameters('location')]",
+            "copy": {
+                "name": "vmpublicips",
+                "count": "[parameters('numberOfVMs')]"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[concat(variables('nic_primary_name'), copyIndex(1))]",
+            "comments": "C NICs",
+            "apiVersion": "2019-12-01",
+            "location": "[parameters('location')]",
+            "copy": {
+                "name": "nic-interfaces",
+                "count": "[parameters('numberOfVMs')]"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('subnetRef')]"
+                            },
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('publicIPAddresses_vm_name'), copyIndex(1)))]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4",
+                            "loadBalancerBackendAddressPools": "[if(variables('deployMultipleVms'), createArray(json(concat('{\"id\": \"', reference('loadBalancerTemplate').outputs.loadBalancerResourceID.value, '/backendAddressPools/FES1Backpool\"}'))), '')]"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": false,
+                "enableIPForwarding": false,
+                "networkSecurityGroup": {
+                    "id": "[reference('sharedResourcesTemplate').outputs.nsgResourceID.value]"
+                },
+                "primary": true,
+                "virtualMachine": {
+                    "id": "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('vm_name'), copyIndex(1)))]"
+                }
+            },
+            "dependsOn": [
+                "sharedResourcesTemplate",
+                "loadBalancerTemplate",
+                "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('publicIPAddresses_vm_name'), copyIndex(1)))]"
+            ]
+        }
+    ]
+}

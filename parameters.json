@@ -1,0 +1,119 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "value": "westeurope"
+        },
+        "deployFsm": {
+            "value": true
+        },
+        "vm_size": {
+            "value": "Standard_D8_v3"
+        },
+        "numberOfVMs": {
+            "value": 4
+        },
+        "storage_Account_name": {
+            "value": "camazfpointesg367e1091c0"
+        },
+        "storage_Account_newOrExisting": {
+            "value": "new"
+        },
+        "storage_Account_ResourceGroup": {
+            "value": "CAM-WE-Forcepoint"
+        },
+        "virtualNetwork_name": {
+            "value": "CAM-WE-Vnet"
+        },
+        "virtualNetwork_addressPrefixes": {
+            "value": [
+                "10.40.0.0/16"
+            ]
+        },
+        "virtualNetwork_newOrExisting": {
+            "value": "existing"
+        },
+        "virtualNetwork_ResourceGroup": {
+            "value": "CAM-WE-Networking"
+        },
+        "vmAdminPassword": {
+            "value": null
+        },
+        "vmAdminUserName": {
+            "value": "azureuser"
+        },
+        "subnet_name": {
+            "value": "Forcepoint"
+        },
+        "vm_name": {
+            "value": "cam-az-fpointesg"
+        },
+        "subnetPrefix": {
+            "value": "10.40.4.0/24"
+        },
+        "fsmVirtualMachineName": {
+            "value": "cam-az-fpointsm"
+        },
+        "fsmVirtualMachineSize": {
+            "value": "Standard_D8s_v3"
+        },
+        "fsmVmAdminUsername": {
+            "value": "unfa-fpointsm"
+        },
+        "fsmVmAdminPassword": {
+            "value": null
+        },
+        "sqlServerRemote": {
+            "value": true
+        },
+        "sqlServerHost": {
+            "value": "fpsql"
+        },
+        "sqlServerPort": {
+            "value": 1433
+        },
+        "sqlServerUser": {
+            "value": "unfa-forcepointsql"
+        },
+        "sqlServerPassword": {
+            "value": null
+        },
+        "sqlServerWindowsUser": {
+            "value": "fpsql"
+        },
+        "sqlServerWindowsPassword": {
+            "value": null
+        },
+        "sqlServerEncrypt": {
+            "value": false
+        },
+        "certUrl": {
+            "value": "http://notused/"
+        },
+        "dssArchiveEnable": {
+            "value": false
+        },
+        "dssArchiveLocalFolder": {
+            "value": "\\\\pathnotused"
+        },
+        "dssArchiveSharedFolder": {
+            "value": "\\\\pathnotused"
+        },
+        "dssArchiveUsername": {
+            "value": "archiveuser"
+        },
+        "dssArchivePassword": {
+            "value": null
+        },
+        "dssArchiveDomain": {
+            "value": "archivedomain"
+        },
+        "fsmAdminPassword": {
+            "value": null
+        },
+        "fsmAdminEmailAddress": {
+            "value": "phil.rich@abcam.com"
+        }
+    }
+}
