@@ -1,0 +1,151 @@
+{
+    "properties": {
+        "displayName": "Deploy Windows Admin Center extension for Windows Server",
+        "policyType": "BuiltIn",
+        "mode": "Indexed",
+        "description": "This policy deploys a Windows Admin Center extension to manage Windows Server operating system inside an Azure Virtual Machine.",
+        "metadata": {
+            "version": "1.0.0",
+            "category": "Compute"
+        },
+        "parameters": {
+            "salt": {
+                "type": "String",
+                "metadata": {
+                    "description": "<unique string used for hashing>"
+                }
+            }
+        },
+        "policyRule": {
+            "if": {
+                "allOf": [
+                    {
+                        "field": "type",
+                        "equals": "Microsoft.Compute/virtualMachines"
+                    },
+                    {
+                        "field": "Microsoft.Compute/imagePublisher",
+                        "equals": "MicrosoftWindowsServer"
+                    },
+                    {
+                        "field": "Microsoft.Compute/imageOffer",
+                        "equals": "WindowsServer"
+                    },
+                    {
+                        "field": "Microsoft.Compute/imageSku",
+                        "in": [
+                            "2008-R2-SP1",
+                            "2008-R2-SP1-smalldisk",
+                            "2012-Datacenter",
+                            "2012-Datacenter-smalldisk",
+                            "2012-R2-Datacenter",
+                            "2012-R2-Datacenter-smalldisk",
+                            "2016-Datacenter",
+                            "2016-Datacenter-Server-Core",
+                            "2016-Datacenter-Server-Core-smalldisk",
+                            "2016-Datacenter-smalldisk",
+                            "2016-Datacenter-with-Containers",
+                            "2016-Datacenter-with-RDSH",
+                            "2019-Datacenter",
+                            "2019-Datacenter-Core",
+                            "2019-Datacenter-Core-smalldisk",
+                            "2019-Datacenter-Core-with-Containers",
+                            "2019-Datacenter-Core-with-Containers-smalldisk",
+                            "2019-Datacenter-smalldisk",
+                            "2019-Datacenter-with-Containers",
+                            "2019-Datacenter-with-Containers-smalldisk"
+                        ]
+                    }
+                ]
+            },
+            "then": {
+                "effect": "deployIfNotExists",
+                "details": {
+                    "type": "Microsoft.Compute/virtualMachines/extensions",
+                    "existenceCondition": {
+                        "allOf": [
+                            {
+                                "field": "Microsoft.Compute/virtualMachines/extensions/type",
+                                "equals": "AdminCenter"
+                            },
+                            {
+                                "field": "Microsoft.Compute/virtualMachines/extensions/publisher",
+                                "equals": "Microsoft.AdminCenter"
+                            }
+                        ]
+                    },
+                    "roleDefinitionIds": [
+                        "/providers/microsoft.authorization/roleDefinitions/9980e02c-c2be-4d73-94e8-173b1dc7cf3c"
+                    ],
+                    "deployment": {
+                        "properties": {
+                            "mode": "incremental",
+                            "template": {
+                                "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                                "contentVersion": "1.0.0.0",
+                                "parameters": {
+                                    "vmName": {
+                                        "type": "string"
+                                    },
+                                    "location": {
+                                        "type": "string"
+                                    },
+                                    "salt": {
+                                        "type": "string",
+                                        "metadata": {
+                                            "description": "<unique string used for hashing>"
+                                        }
+                                    }
+                                },
+                                "resources": [
+                                    {
+                                        "type": "Microsoft.Compute/virtualMachines/extensions",
+                                        "name": "[concat( parameters('vmName'), '/AdminCenter' )]",
+                                        "apiVersion": "2018-10-01",
+                                        "location": "[parameters('location')]",
+                                        "properties": {
+                                            "publisher": "Microsoft.AdminCenter",
+                                            "type": "AdminCenter",
+                                            "typeHandlerVersion": "0.0",
+                                            "autoUpgradeMinorVersion": true,
+                                            "settings": {
+                                                "port": "6516",
+                                                "salt": "[parameters('salt')]",
+                                                "cspFrameAncestors": [
+                                                    "https://*.hosting.portal.azure.net",
+                                                    "https://localhost:1340",
+                                                    "https://ms.portal.azure.com",
+                                                    "https://portal.azure.com",
+                                                    "https://preview.portal.azure.com"
+                                                ],
+                                                "corsOrigins": [
+                                                    "https://ms.portal.azure.com",
+                                                    "https://portal.azure.com",
+                                                    "https://preview.portal.azure.com",
+                                                    "https://waconazure.com"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            "parameters": {
+                                "vmName": {
+                                    "value": "[field('name')]"
+                                },
+                                "location": {
+                                    "value": "[field('location')]"
+                                },
+                                "salt": {
+                                    "value": "[parameters('salt')]"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "id": "/providers/Microsoft.Authorization/policyDefinitions/2835b622-407b-4114-9198-6f7064cbe0dc",
+    "name": "2835b622-407b-4114-9198-6f7064cbe0dc"
+}
